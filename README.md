@@ -1,4 +1,4 @@
-Bu portföy takip uygulamasını kendim için ai yardımıyla yaklaşık 5-6 saatte yaptım. İlk proje denememdir. Burdan sonraki yazıları da tamamen gemini'ye yazdırdım.
+Bu yazıları tamamen Gemini'ye yazdırdım.
 
 
 Bu proje, bireysel yatırımcıların farklı platformlardaki (Borsa İstanbul, ABD Borsaları, Kripto Paralar, Yatırım Fonları ve Değerli Madenler) tüm varlıklarını tek bir merkezden, anlık fiyatlarla takip etmelerini sağlayan **Python tabanlı bir Portföy Yönetim Sistemidir**.
