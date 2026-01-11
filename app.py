@@ -13,7 +13,6 @@ if "aktif_kullanici" not in st.session_state:
 if "para_birimi" not in st.session_state:
     st.session_state["para_birimi"] = "TL"
 
-# Kullanıcı veritabanı kontrolü
 if not os.path.exists('kullanicilar.csv'):
     pd.DataFrame(columns=['kullanici_adi', 'sifre']).to_csv('kullanicilar.csv', sep=';', index=False)
 
@@ -26,8 +25,7 @@ def giris_sistemi():
         with st.form("giris_formu"):
             k_adi = st.text_input("Kullanıcı Adı").strip()
             sifre = st.text_input("Şifre", type="password").strip()
-            submit = st.form_submit_button("Giriş Yap", use_container_width=True)
-            if submit:
+            if st.form_submit_button("Giriş Yap", use_container_width=True):
                 df_k = pd.read_csv('kullanicilar.csv', sep=';', dtype=str).fillna("")
                 user = df_k[(df_k['kullanici_adi'] == k_adi) & (df_k['sifre'] == sifre)]
                 if not user.empty:
@@ -42,15 +40,14 @@ def giris_sistemi():
             st.subheader("Yeni Profil Bilgileri")
             y_kadi = st.text_input("Yeni Kullanıcı Adı").strip()
             y_sifre = st.text_input("Yeni Şifre", type="password").strip()
-            y_submit = st.form_submit_button("Profil Oluştur", use_container_width=True)
-            if y_submit:
+            if st.form_submit_button("Profil Oluştur", use_container_width=True):
                 df_k = pd.read_csv('kullanicilar.csv', sep=';', dtype=str).fillna("")
                 if y_kadi in df_k['kullanici_adi'].values:
                     st.warning("Bu kullanıcı adı zaten alınmış!")
                 elif y_kadi and y_sifre:
                     yeni_user = pd.DataFrame([[y_kadi, y_sifre]], columns=['kullanici_adi', 'sifre'])
                     pd.concat([df_k, yeni_user], ignore_index=True).to_csv('kullanicilar.csv', sep=';', index=False)
-                    st.success("Profil başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz.")
+                    st.success("Profil oluşturuldu! Giriş yapabilirsiniz.")
                 else:
                     st.error("Lütfen tüm alanları doldurun!")
 
@@ -58,38 +55,38 @@ def giris_sistemi():
 if not st.session_state["giris_yapildi"]:
     giris_sistemi()
 else:
-    # Her kullanıcı için ayrı dosya
     PORTFOY_DOSYASI = f"portfoy_{st.session_state['aktif_kullanici']}.csv"
+    GECMIS_DOSYASI = f"gecmis_{st.session_state['aktif_kullanici']}.csv"
     
+    if not os.path.exists(GECMIS_DOSYASI):
+        pd.DataFrame(columns=['tarih', 'toplam_tl', 'toplam_usd']).to_csv(GECMIS_DOSYASI, sep=';', index=False)
+
     st.markdown("""<style>.stApp { background-color: #0e1117; color: white; } h1, h2, h3, p, span { color: white !important; } .footer-text { color: gray; font-size: 0.8rem; text-align: center; } .bilgi-notu { color: #888; font-size: 0.9rem; margin-top: 15px; } .uyari-notu { color: #ffcc00; font-size: 0.85rem; font-style: italic; }</style>""", unsafe_allow_html=True)
 
     def verileri_getir():
         if not os.path.exists(PORTFOY_DOSYASI):
             pd.DataFrame(columns=['hisse_kodu', 'adet', 'tur', 'birim_fiyat']).to_csv(PORTFOY_DOSYASI, sep=';', index=False)
-            return pd.DataFrame()
+            return pd.DataFrame(), 1.0
         
         df = pd.read_csv(PORTFOY_DOSYASI, sep=';').dropna(subset=['hisse_kodu'])
-        if df.empty: return df
+        if df.empty: return df, 1.0
         df.columns = df.columns.str.strip().str.lower()
         
         try: usd_kur = yf.Ticker("USDTRY=X").history(period="1d")['Close'].iloc[-1]
-        except: usd_kur = 1
+        except: usd_kur = 1.0
         
         fiyatlar, isimler = [], []
         for _, row in df.iterrows():
             kod, tur = str(row['hisse_kodu']).upper(), str(row['tur']).lower()
             try:
-                if tur == 'diger': 
-                    f, n = float(row['birim_fiyat']), kod
+                if tur == 'diger': f, n = float(row['birim_fiyat']), kod
                 else:
                     ykod = kod
-                    if kod in ["BTC", "ETH", "SOL"]: 
-                        ykod, n = f"{kod}-USD", {"BTC":"Bitcoin","ETH":"Ethereum","SOL":"Solana"}[kod]
+                    if kod in ["BTC", "ETH", "SOL"]: ykod, n = f"{kod}-USD", {"BTC":"Bitcoin","ETH":"Ethereum","SOL":"Solana"}[kod]
                     elif kod == "ALTIN": ykod, n = "GC=F", "Gram Altın"
                     elif kod == "GUMUS": ykod, n = "SI=F", "Gram Gümüş"
                     else:
-                        if tur == 'bist' and not kod.endswith(".IS"): ykod = f"{kod}.IS"
-                        if tur == 'fon' and not kod.endswith(".IS"): ykod = f"{kod}.IS"
+                        if tur in ['bist', 'fon'] and not kod.endswith(".IS"): ykod = f"{kod}.IS"
                         ykod = {"USD": "USDTRY=X", "EUR": "EURTRY=X"}.get(kod, ykod)
                         tick = yf.Ticker(ykod)
                         n = tick.info.get('shortName', kod)
@@ -100,26 +97,33 @@ else:
                     if tur in ['abd', 'kripto']: f *= usd_kur
                     if kod in ["ALTIN", "GUMUS"]: f = (f / 31.1035) * usd_kur
                 fiyatlar.append(f); isimler.append(n)
-            except: 
-                fiyatlar.append(0); isimler.append(kod)
+            except: fiyatlar.append(0); isimler.append(kod)
             
         df['Varlık İsmi'], df['birim_fiyat'] = isimler, fiyatlar
         df['Toplam Değer'] = df.apply(lambda r: r['birim_fiyat'] if r['tur'] == 'diger' else r['adet'] * r['birim_fiyat'], axis=1)
         
+        # Geçmiş Kaydı
+        toplam_tl = df['Toplam Değer'].sum()
+        toplam_usd = toplam_tl / usd_kur
+        bugun = datetime.now().strftime("%Y-%m-%d")
+        gecmis_df = pd.read_csv(GECMIS_DOSYASI, sep=';')
+        if bugun not in gecmis_df['tarih'].values:
+            yeni_kayit = pd.DataFrame([[bugun, toplam_tl, toplam_usd]], columns=['tarih', 'toplam_tl', 'toplam_usd'])
+            pd.concat([gecmis_df, yeni_kayit], ignore_index=True).to_csv(GECMIS_DOSYASI, sep=';', index=False)
+
         if st.session_state["para_birimi"] == "USD":
             df['Toplam Değer'] /= usd_kur
             df['birim_fiyat'] /= usd_kur
-        return df.rename(columns={'hisse_kodu': 'Kod', 'adet': 'Adet'})
+        return df.rename(columns={'hisse_kodu': 'Kod', 'adet': 'Adet'}), usd_kur
 
     # --- SIDEBAR ---
     with st.sidebar:
         st.title(f"👤 {st.session_state['aktif_kullanici']}")
         st.divider()
-        sayfa = st.radio("Menü", ["Portföyü İzle", "Portföy Analizi", "Varlık Yönetimi"])
+        sayfa = st.radio("Menü", ["Portföyü İzle", "Gelişim Grafiği", "Portföy Analizi", "Varlık Yönetimi"])
         st.divider()
         if st.button("🚪 Çıkış Yap", use_container_width=True):
             st.session_state["giris_yapildi"] = False
-            st.session_state["aktif_kullanici"] = None
             st.rerun()
 
     # --- SAYFALAR ---
@@ -131,7 +135,7 @@ else:
             st.session_state["para_birimi"] = "USD" if st.session_state["para_birimi"] == "TL" else "TL"
             st.rerun()
         
-        data = verileri_getir()
+        data, _ = verileri_getir()
         if not data.empty:
             birim = "$" if st.session_state["para_birimi"] == "USD" else "TL"
             st.metric(f"Toplam Değer", f"{data['Toplam Değer'].sum():,.2f} {birim}")
@@ -143,9 +147,20 @@ else:
                     st.dataframe(subset[['Varlık İsmi', 'Kod', 'Adet', 'Toplam Değer']], use_container_width=True, hide_index=True)
             tablo_ciz("💍 Madenler", "maden"); tablo_ciz("🇹🇷 BIST", "bist"); tablo_ciz("🇺🇸 ABD", "abd"); tablo_ciz("📦 Fonlar", "fon"); tablo_ciz("🪙 Kripto", "kripto"); tablo_ciz("💵 Döviz", "doviz"); tablo_ciz("📎 Diğer", "diger")
 
+    elif sayfa == "Gelişim Grafiği":
+        st.header("📈 Portföy Gelişimi")
+        gecmis_df = pd.read_csv(GECMIS_DOSYASI, sep=';')
+        if not gecmis_df.empty:
+            birim_sutun = 'toplam_usd' if st.session_state["para_birimi"] == "USD" else 'toplam_tl'
+            birim_etiket = "$" if st.session_state["para_birimi"] == "USD" else "TL"
+            st.line_chart(gecmis_df.set_index('tarih')[birim_sutun])
+            st.info(f"Grafik, günlük toplam değerinizi ({birim_etiket}) takip eder.")
+        else:
+            st.warning("Veri birikmesi bekleniyor...")
+
     elif sayfa == "Portföy Analizi":
-        st.header("📊 Analiz")
-        data = verileri_getir()
+        st.header("📊 Varlık Dağılımı")
+        data, _ = verileri_getir()
         if not data.empty and data['Toplam Değer'].sum() > 0:
             fig, ax = plt.subplots()
             ax.pie(data[data['Toplam Değer']>0]['Toplam Değer'], labels=data[data['Toplam Değer']>0]['Kod'], autopct='%1.1f%%', textprops={'color':'white'})
@@ -162,8 +177,11 @@ else:
                 y_a, y_f = (1.0, y_v) if t_es[s_t] == 'diger' else (y_v, 0.0)
                 pd.concat([df_m, pd.DataFrame([[y_k.upper(), y_a, t_es[s_t], y_f]], columns=['hisse_kodu','adet','tur','birim_fiyat'])], ignore_index=True).to_csv(PORTFOY_DOSYASI, sep=';', index=False)
                 st.rerun()
-        st.markdown('<p class="bilgi-notu">💡 Örnek: BTC, ALTIN, THYAO</p><p class="uyari-notu">⚠️ Hisse, fon, kripto para eklerken varlığın adetini; "Diğer" varlıkları eklerken ise varlığın değerini giriniz.</p>', unsafe_allow_html=True)
         
+        # GERİ EKLENEN NOTLAR
+        st.markdown('<p class="bilgi-notu">💡 Varlık eklemek için şunları deneyin: BTC, ALTIN, THYAO</p>', unsafe_allow_html=True)
+        st.markdown('<p class="uyari-notu">⚠️ Hisse, fon, kripto para eklerken varlığın adetini; "Diğer" varlıkları eklerken ise varlığın değerini giriniz.</p>', unsafe_allow_html=True)
+
         df_m = pd.read_csv(PORTFOY_DOSYASI, sep=';').dropna(subset=['hisse_kodu'])
         if not df_m.empty:
             st.divider()
