@@ -1,7 +1,4 @@
 streamlit
 pandas
 yfinance
-tefas
 matplotlib
-selenium
-webdriver-manager
