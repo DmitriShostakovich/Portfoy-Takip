@@ -51,7 +51,7 @@ def verileri_getir():
 
     fiyatlar, isimler = [], []
     for _, row in df.iterrows():
-        kod, tur = str(row['hisse_kodu']).upper(), str(row['tur']).lower()
+        kod, tur = str(row['hisse_kodu']).upper(), str(row['tur'])
         try:
             if tur == 'Diğer':
                 f, n = float(row['birim_fiyat']), kod
@@ -76,8 +76,8 @@ def verileri_getir():
                 hist = yf.Ticker(ykod).history(period="5d")
                 f = hist['Close'].iloc[-1] if not hist.empty else 0
 
-                if tur in ['ABD', 'Kripto'] or (tur == 'doviz' and kod != 'USD'):
-                    if tur != 'Döviz': f *= usd_kur
+                if tur in ['ABD', 'Kripto'] or (tur == 'Döviz' and kod != 'USD'):
+                    if tur == 'ABD' or tur == 'Kripto': f *= usd_kur
                 if kod in ["ALTIN", "GUMUS", "PLATIN", "PALADYUM"]:
                     f = (f / 31.1035) * usd_kur
 
